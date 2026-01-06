@@ -71,8 +71,9 @@
       <button id="btnRetry" class="btn">Еще раз</button>
     </div>
   </div>
-
+  <script>if (window.vkBridge) vkBridge.send("VKWebAppInit", {});</script>
   <!-- Boot -->
   <script type="module" src="src/main.js"></script>
 </body>
 </html>
+

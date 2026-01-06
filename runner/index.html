@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+  <meta name="theme-color" content="#0b0b0b" />
+
+  <!-- iOS standalone (опционально) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <title>Dorm Runner</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+  <!-- HUD -->
+  <div id="hud" aria-hidden="false">
+    <div class="hud-left">
+      <div class="hp">
+        <div class="hp-label">HP</div>
+        <div class="hp-bar">
+          <div id="hpFill" class="hp-fill" style="width: 100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hud-right">
+      <div class="stat">
+        <div class="stat-label">DIST</div>
+        <div id="distText" class="stat-value">0 m</div>
+      </div>
+
+      <div class="weapon">
+        <div class="stat-label">WEAPON</div>
+        <div class="weapon-box">
+          <img id="weaponIcon" src="assets/sprites/ui/weapon_empty.png" alt="weapon" />
+          <div id="weaponDur" class="weapon-dur"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Canvas wrapper to handle safe-area -->
+  <div id="stage">
+    <canvas id="game" width="360" height="640" aria-label="Dorm Runner"></canvas>
+  </div>
+
+  <!-- Screens -->
+  <div id="screenStart" class="screen visible">
+    <div class="screen-card">
+      <h1>Dorm Runner</h1>
+      <p class="hint">
+        Свайп ←/→: смена полосы<br/>
+        Двойной тап: действие оружия
+      </p>
+      <button id="btnStart" class="btn">Старт</button>
+      <p class="small">
+        (На телефоне держи вертикально)
+      </p>
+    </div>
+  </div>
+
+  <div id="screenDead" class="screen">
+    <div class="screen-card">
+      <h2>Конец</h2>
+      <p class="hint">
+        Дистанция: <span id="deadDist">0</span> m
+      </p>
+      <button id="btnRetry" class="btn">Еще раз</button>
+    </div>
+  </div>
+
+  <!-- Boot -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

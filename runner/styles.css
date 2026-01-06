@@ -1,0 +1,203 @@
+/* styles.css */
+
+/* Базовый reset под мобилу */
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; padding: 0; }
+
+html {
+  background: #0b0b0b;
+  color: #eaeaea;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+}
+
+body {
+  /* Важно: не даём странице скроллиться, игра управляется тачем */
+  overflow: hidden;
+
+  /* Не выделять текст/не вызывать меню */
+  -webkit-user-select: none;
+  user-select: none;
+
+  /* Убираем подсветку тапом */
+  -webkit-tap-highlight-color: transparent;
+
+  /* Поддержка safe area (iPhone с вырезами) */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Главная область, в ней canvas */
+#stage {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* Канвас: ровный пиксель-скейл + отключить жесты браузера */
+#game {
+  display: block;
+  background: #0f0f0f;
+
+  /* Игра сама обрабатывает жесты */
+  touch-action: none;
+
+  /* Для стабильного масштабирования */
+  image-rendering: pixelated; /* если будут пиксель-арт спрайты */
+  image-rendering: crisp-edges;
+
+  /* Небольшая тень, чтобы визуально отделить от фона */
+  box-shadow: 0 12px 40px rgba(0,0,0,0.55);
+  border-radius: 14px;
+}
+
+/* HUD поверх */
+#hud {
+  position: fixed;
+  left: 0; right: 0;
+  top: 0;
+
+  z-index: 20;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px 12px;
+  pointer-events: none; /* чтобы не мешал управлению */
+}
+
+.hud-left, .hud-right {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.hp {
+  display: grid;
+  gap: 6px;
+}
+
+.hp-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  opacity: 0.75;
+}
+
+.hp-bar {
+  width: 140px;
+  height: 12px;
+  background: rgba(255,255,255,0.10);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.hp-fill {
+  height: 100%;
+  background: rgba(255, 70, 70, 0.95);
+  width: 100%;
+  border-radius: 999px;
+  transition: width 120ms linear;
+}
+
+.stat {
+  display: grid;
+  gap: 6px;
+  text-align: right;
+}
+
+.stat-label {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  opacity: 0.75;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.weapon {
+  display: grid;
+  gap: 6px;
+  text-align: right;
+}
+
+.weapon-box {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+
+.weapon-box img {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 6px 10px rgba(0,0,0,0.35));
+}
+
+.weapon-dur {
+  font-size: 13px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+/* Экраны старт/смерть */
+.screen {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: none;
+  place-items: center;
+  padding: 18px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.screen.visible {
+  display: grid;
+}
+
+.screen-card {
+  width: min(420px, 92vw);
+  border-radius: 18px;
+  padding: 18px 16px;
+  background: rgba(20,20,20,0.92);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+  text-align: center;
+}
+
+.screen-card h1, .screen-card h2 {
+  margin: 6px 0 10px 0;
+}
+
+.hint {
+  margin: 10px 0 14px 0;
+  line-height: 1.35;
+  opacity: 0.88;
+}
+
+.small {
+  margin: 10px 0 0 0;
+  font-size: 12px;
+  opacity: 0.65;
+}
+
+.btn {
+  pointer-events: auto; /* кнопки должны работать */
+  appearance: none;
+  border: 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0b0b0b;
+  background: #eaeaea;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}

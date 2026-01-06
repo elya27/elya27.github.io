@@ -3,283 +3,270 @@
 <head>
 <meta charset="UTF-8">
 <title>Minimal Space Invaders</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
 <style>
-    html, body {
-        margin: 0;
-        padding: 0;
-        background: #0b0f1a;
-        color: #eaeaf0;
-        font-family: 'Segoe UI', system-ui, sans-serif;
-        overflow: hidden;
-    }
+html, body {
+    margin: 0;
+    padding: 0;
+    background: #0b0f1a;
+    font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+    overflow: hidden;
+    touch-action: none;
+}
 
-    canvas {
-        display: block;
-        margin: auto;
-        background: radial-gradient(circle at top, #12182a, #070b14);
-    }
+canvas {
+    display: block;
+    margin: auto;
+    background: radial-gradient(circle at top, #141a30, #070b14);
+}
 
-    #hint {
-        position: absolute;
-        bottom: 16px;
-        width: 100%;
-        text-align: center;
-        font-size: 14px;
-        opacity: 0.5;
-    }
+.touch-zone {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 33.33%;
+    pointer-events: none;
+}
+
+#leftZone { left: 0; background: linear-gradient(to right, rgba(125,211,252,0.12), transparent); }
+#shootZone { left: 33.33%; background: rgba(250,204,21,0.05); }
+#rightZone { right: 0; background: linear-gradient(to left, rgba(125,211,252,0.12), transparent); }
+
+.fade {
+    position: absolute;
+    inset: 0;
+    background: #0b0f1a;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.6s ease;
+}
+.fade.show { opacity: 1; }
 </style>
 </head>
 <body>
 
 <canvas id="game"></canvas>
-<div id="hint">← → / A D — движение · Space — огонь · Enter — старт</div>
+
+<div id="leftZone" class="touch-zone"></div>
+<div id="shootZone" class="touch-zone"></div>
+<div id="rightZone" class="touch-zone"></div>
+<div id="fade" class="fade"></div>
+
+<script src="https://unpkg.com/@vkontakte/vk-bridge/dist/browser.min.js"></script>
+<script>
+if (window.vkBridge) vkBridge.send("VKWebAppInit", {});
+</script>
 
 <script>
 (() => {
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+const fade = document.getElementById('fade');
 
-    function resize() {
-        canvas.width = Math.min(window.innerWidth, 900);
-        canvas.height = Math.min(window.innerHeight, 600);
+function resize() {
+    canvas.width = Math.min(innerWidth, 900);
+    canvas.height = Math.min(innerHeight, 600);
+}
+addEventListener('resize', resize);
+resize();
+
+/* INPUT */
+const input = { left:false, right:false, shoot:false };
+addEventListener('keydown', e=>{
+    if(['ArrowLeft','KeyA'].includes(e.code)) input.left=true;
+    if(['ArrowRight','KeyD'].includes(e.code)) input.right=true;
+    if(e.code==='Space') input.shoot=true;
+});
+addEventListener('keyup', e=>{
+    if(['ArrowLeft','KeyA'].includes(e.code)) input.left=false;
+    if(['ArrowRight','KeyD'].includes(e.code)) input.right=false;
+    if(e.code==='Space') input.shoot=false;
+});
+canvas.addEventListener('touchstart', handleTouch, {passive:false});
+canvas.addEventListener('touchmove', handleTouch, {passive:false});
+canvas.addEventListener('touchend', ()=>Object.assign(input,{left:false,right:false,shoot:false}));
+
+function handleTouch(e){
+    e.preventDefault();
+    Object.assign(input,{left:false,right:false,shoot:false});
+    for(const t of e.touches){
+        const x=t.clientX/innerWidth;
+        if(x<0.33) input.left=true;
+        else if(x>0.66) input.right=true;
+        else input.shoot=true;
     }
-    window.addEventListener('resize', resize);
-    resize();
+}
 
-    const State = {
-        MENU: 0,
-        PLAYING: 1,
-        GAME_OVER: 2
-    };
+/* GAME */
+const State={MENU:0,PLAY:1,TRANSITION:2,OVER:3};
+let state=State.MENU;
 
-    let state = State.MENU;
-
-    const keys = {};
-    window.addEventListener('keydown', e => keys[e.code] = true);
-    window.addEventListener('keyup', e => keys[e.code] = false);
-
-    class Player {
-        constructor() {
-            this.width = 50;
-            this.height = 16;
-            this.x = canvas.width / 2 - this.width / 2;
-            this.y = canvas.height - 50;
-            this.speed = 420;
-            this.cooldown = 0;
-            this.lives = 3;
-        }
-
-        update(dt) {
-            if (keys['ArrowLeft'] || keys['KeyA']) this.x -= this.speed * dt;
-            if (keys['ArrowRight'] || keys['KeyD']) this.x += this.speed * dt;
-
-            this.x = Math.max(20, Math.min(canvas.width - this.width - 20, this.x));
-
-            if (keys['Space'] && this.cooldown <= 0) {
-                bullets.push(new Bullet(this.x + this.width / 2, this.y));
-                this.cooldown = 0.25;
-            }
-
-            this.cooldown -= dt;
-        }
-
-        draw() {
-            ctx.fillStyle = '#7dd3fc';
-            ctx.beginPath();
-            ctx.roundRect(this.x, this.y, this.width, this.height, 6);
-            ctx.fill();
-        }
+class Player{
+    constructor(){
+        this.w=54; this.h=18;
+        this.x=canvas.width/2-this.w/2;
+        this.y=canvas.height-60;
+        this.speed=420;
+        this.cool=0;
     }
-
-    class Bullet {
-        constructor(x, y) {
-            this.x = x;
-            this.y = y;
-            this.speed = 520;
-            this.radius = 3;
+    update(dt){
+        if(input.left) this.x-=this.speed*dt;
+        if(input.right) this.x+=this.speed*dt;
+        this.x=Math.max(30,Math.min(canvas.width-this.w-30,this.x));
+        if(input.shoot && this.cool<=0){
+            bullets.push(new Bullet(this.x+this.w/2,this.y));
+            this.cool=0.18;
         }
-
-        update(dt) {
-            this.y -= this.speed * dt;
-        }
-
-        draw() {
-            ctx.fillStyle = '#facc15';
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fill();
-        }
+        this.cool-=dt;
     }
-
-    class Enemy {
-        constructor(x, y, type) {
-            this.x = x;
-            this.y = y;
-            this.type = type;
-            this.size = 26;
-            this.hp = type.hp;
-            this.color = type.color;
-            this.phase = Math.random() * Math.PI * 2;
-        }
-
-        update(dt, speed) {
-            this.y += speed * dt;
-            this.phase += dt * 4;
-        }
-
-        draw() {
-            ctx.save();
-            ctx.translate(this.x, this.y);
-            ctx.rotate(Math.sin(this.phase) * 0.1);
-
-            ctx.fillStyle = this.color;
-            ctx.beginPath();
-            ctx.roundRect(-this.size / 2, -this.size / 2, this.size, this.size, 8);
-            ctx.fill();
-
-            ctx.restore();
-        }
+    draw(){
+        ctx.fillStyle='#7dd3fc';
+        ctx.beginPath();
+        ctx.roundRect(this.x,this.y,this.w,this.h,8);
+        ctx.fill();
     }
+}
 
-    const enemyTypes = [
-        { hp: 1, color: '#f472b6', score: 10 },
-        { hp: 2, color: '#c084fc', score: 20 },
-        { hp: 3, color: '#34d399', score: 40 }
-    ];
-
-    let player, bullets, enemies;
-    let level, score, killed;
-
-    function startGame() {
-        state = State.PLAYING;
-        player = new Player();
-        bullets = [];
-        enemies = [];
-        level = 1;
-        score = 0;
-        killed = 0;
-        spawnWave();
+class Bullet{
+    constructor(x,y){this.x=x;this.y=y;this.v=520;}
+    update(dt){this.y-=this.v*dt;}
+    draw(){
+        ctx.shadowColor='#facc15';
+        ctx.shadowBlur=12;
+        ctx.fillStyle='#fde68a';
+        ctx.beginPath();
+        ctx.arc(this.x,this.y,3,0,Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur=0;
     }
+}
 
-    function spawnWave() {
-        enemies.length = 0;
-        const cols = 8;
-        const rows = Math.min(3 + level, 6);
-        const type = enemyTypes[Math.min(enemyTypes.length - 1, Math.floor(level / 2))];
-
-        for (let y = 0; y < rows; y++) {
-            for (let x = 0; x < cols; x++) {
-                enemies.push(
-                    new Enemy(
-                        100 + x * 70,
-                        80 + y * 50,
-                        type
-                    )
-                );
-            }
-        }
+class Enemy{
+    constructor(x,y,type){
+        this.x=x;this.y=y;this.t=type;
+        this.hp=type.hp;
+        this.phase=Math.random()*Math.PI*2;
     }
+    update(dt,speed){
+        this.phase+=dt*2;
+        this.y+=speed*dt;
+    }
+    draw(){
+        const s=26+Math.sin(this.phase)*2;
+        ctx.save();
+        ctx.translate(this.x,this.y);
+        ctx.rotate(Math.sin(this.phase)*0.08);
+        ctx.fillStyle=this.t.color;
+        ctx.beginPath();
+        ctx.roundRect(-s/2,-s/2,s,s,8);
+        ctx.fill();
+        ctx.restore();
+    }
+}
 
-    function update(dt) {
-        if (state !== State.PLAYING) return;
+const enemyTypes=[
+ {hp:1,color:'#f472b6',score:10},
+ {hp:2,color:'#c084fc',score:25},
+ {hp:3,color:'#34d399',score:50}
+];
 
-        player.update(dt);
-        bullets.forEach(b => b.update(dt));
-        bullets = bullets.filter(b => b.y > -10);
+let player,bullets,enemies,level,score;
 
-        const speed = 20 + level * 10;
-        enemies.forEach(e => e.update(dt, speed));
+function start(){
+    fade.classList.add('show');
+    setTimeout(()=>{
+        state=State.PLAY;
+        player=new Player();
+        bullets=[]; enemies=[];
+        level=1; score=0;
+        spawn();
+        fade.classList.remove('show');
+    },600);
+}
 
-        bullets.forEach(b => {
-            enemies.forEach(e => {
-                if (
-                    Math.abs(b.x - e.x) < e.size / 2 &&
-                    Math.abs(b.y - e.y) < e.size / 2
-                ) {
-                    b.y = -100;
-                    e.hp--;
-                    if (e.hp <= 0) {
-                        score += e.type.score;
-                        killed++;
-                        enemies.splice(enemies.indexOf(e), 1);
-                    }
+function spawn(){
+    enemies=[];
+    const rows=Math.min(3+level,6);
+    const type=enemyTypes[Math.min(enemyTypes.length-1,Math.floor(level/2))];
+    for(let y=0;y<rows;y++)
+        for(let x=0;x<8;x++)
+            enemies.push(new Enemy(100+x*70,80+y*50,type));
+}
+
+function update(dt){
+    if(state!==State.PLAY) return;
+    player.update(dt);
+    bullets.forEach(b=>b.update(dt));
+    bullets=bullets.filter(b=>b.y>-20);
+
+    enemies.forEach(e=>e.update(dt,14+level*6));
+
+    bullets.forEach(b=>{
+        enemies.forEach(e=>{
+            if(Math.abs(b.x-e.x)<13 && Math.abs(b.y-e.y)<13){
+                b.y=-100;
+                if(--e.hp<=0){
+                    score+=e.t.score;
+                    enemies.splice(enemies.indexOf(e),1);
                 }
-            });
-        });
-
-        if (enemies.length === 0) {
-            level++;
-            spawnWave();
-        }
-
-        enemies.forEach(e => {
-            if (e.y > player.y) {
-                state = State.GAME_OVER;
             }
         });
+    });
+
+    if(!enemies.length){
+        state=State.TRANSITION;
+        fade.classList.add('show');
+        setTimeout(()=>{
+            level++;
+            spawn();
+            fade.classList.remove('show');
+            state=State.PLAY;
+        },600);
     }
+}
 
-    function drawHUD() {
-        ctx.fillStyle = '#e5e7eb';
-        ctx.font = '14px Segoe UI';
-
-        ctx.fillText(`Счёт: ${score}`, 20, 30);
-        ctx.fillText(`Уровень: ${level}`, 20, 50);
-        ctx.fillText(`Убито: ${killed}`, 20, 70);
+function render(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    if(state===State.MENU){
+        drawCenter('MINIMAL SPACE INVADERS',canvas.height/2-20);
+        drawCenter('Tap / Space — Start',canvas.height/2+20);
+        return;
     }
+    player.draw();
+    bullets.forEach(b=>b.draw());
+    enemies.forEach(e=>e.draw());
+    drawHUD();
+}
 
-    function drawCenter(text, y) {
-        ctx.fillStyle = '#e5e7eb';
-        ctx.font = '24px Segoe UI';
-        ctx.textAlign = 'center';
-        ctx.fillText(text, canvas.width / 2, y);
-        ctx.textAlign = 'left';
-    }
+function drawHUD(){
+    ctx.fillStyle='rgba(229,231,235,0.9)';
+    ctx.font='14px system-ui';
+    ctx.fillText(`Score: ${score}`,20,30);
+    ctx.fillText(`Level: ${level}`,20,50);
+}
 
-    function render() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+function drawCenter(t,y){
+    ctx.fillStyle='#e5e7eb';
+    ctx.font='24px system-ui';
+    ctx.textAlign='center';
+    ctx.fillText(t,canvas.width/2,y);
+    ctx.textAlign='left';
+}
 
-        if (state === State.MENU) {
-            drawCenter('MINIMAL SPACE INVADERS', canvas.height / 2 - 20);
-            drawCenter('Нажмите Enter', canvas.height / 2 + 20);
-            return;
-        }
-
-        if (state === State.GAME_OVER) {
-            drawCenter('GAME OVER', canvas.height / 2 - 20);
-            drawCenter(`Счёт: ${score}`, canvas.height / 2 + 20);
-            drawCenter('Enter — заново', canvas.height / 2 + 60);
-            return;
-        }
-
-        player.draw();
-        bullets.forEach(b => b.draw());
-        enemies.forEach(e => e.draw());
-        drawHUD();
-    }
-
-    let last = 0;
-    if (window.vkBridge) {
-        vkBridge.send("VKWebAppInit", {});
-    }
-    function loop(ts) {
-        const dt = Math.min(0.033, (ts - last) / 1000);
-        last = ts;
-
-        if (keys['Enter'] && state !== State.PLAYING) {
-            startGame();
-        }
-
-        update(dt);
-        render();
-        requestAnimationFrame(loop);
-    }
-
+let last=0;
+function loop(ts){
+    const dt=Math.min(0.033,(ts-last)/1000);
+    last=ts;
+    if(state===State.MENU && (input.shoot)) start();
+    update(dt);
+    render();
     requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
 })();
 </script>
-
 </body>
 </html>

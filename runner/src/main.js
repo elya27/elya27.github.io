@@ -120,4 +120,8 @@ function boot() {
   loop.start();
 }
 
+if (window.vkBridge) {
+  vkBridge.send("VKWebAppInit", {});
+}
+
 boot();
